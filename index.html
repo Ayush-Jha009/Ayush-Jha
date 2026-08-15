@@ -39,6 +39,9 @@
   .mono{font-family:var(--mono)}
 
   /* ambient grid backdrop */
+  #net{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;opacity:.55;
+    mask-image:radial-gradient(ellipse 80% 55% at 70% 15%,#000 10%,transparent 70%);
+    -webkit-mask-image:radial-gradient(ellipse 80% 55% at 70% 15%,#000 10%,transparent 70%)}
   .grid-bg{position:fixed;inset:0;z-index:0;opacity:.4;pointer-events:none;
     background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
     background-size:64px 64px;
@@ -75,6 +78,8 @@
   .btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(63,216,198,.28)}
   .btn-s{border-color:var(--line);color:var(--fog-2)}
   .btn-s:hover{border-color:var(--teal);color:var(--teal)}
+  .btn-r{border-color:var(--amber);color:var(--amber);background:rgba(232,177,76,.06)}
+  .btn-r:hover{background:var(--amber);color:var(--ink);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,177,76,.24)}
 
   /* dashboard signature */
   .dash{position:relative;z-index:1;margin-top:56px}
@@ -178,6 +183,7 @@
 </head>
 <body>
 <div class="grid-bg"></div>
+<canvas id="net"></canvas>
 
 <header class="nav">
   <div class="wrap nav-in">
@@ -202,6 +208,7 @@
     <p class="lede">Seven years building and running enterprise <b>vulnerability management</b> and <b>governance, risk &amp; compliance</b> programs across global, regulated environments — turning technical risk into decisions leadership can act on.</p>
     <div class="hero-cta">
       <a href="#contact" class="btn btn-p">Start a conversation</a>
+      <a href="Ayush_Jha_Resume.pdf" class="btn btn-r" download>↓ Download résumé</a>
       <a href="#experience" class="btn btn-s">View experience →</a>
     </div>
 
@@ -210,22 +217,22 @@
       <div class="metrics">
         <div class="metric reveal" style="--w:95%">
           <div class="tag">SLA compliance</div>
-          <div class="val">60→95<span class="u">%</span></div>
+          <div class="val"><span class="count" data-to="95" data-prefix="60→">60→95</span><span class="u">%</span></div>
           <div class="lbl">Remediation SLA compliance, rebuilt from the ground up</div>
         </div>
         <div class="metric reveal" style="--w:35%">
           <div class="tag">Closure rate</div>
-          <div class="val">+35<span class="u">%</span></div>
+          <div class="val"><span class="count" data-to="35" data-prefix="+">+35</span><span class="u">%</span></div>
           <div class="lbl">Higher vulnerability closure via risk-based prioritization</div>
         </div>
         <div class="metric reveal" style="--w:80%">
           <div class="tag">Config drift</div>
-          <div class="val">−80<span class="u">%</span></div>
+          <div class="val"><span class="count" data-to="80" data-prefix="−">−80</span><span class="u">%</span></div>
           <div class="lbl">Drift findings cut; detection from 90 days to under an hour</div>
         </div>
         <div class="metric reveal" style="--w:50%">
           <div class="tag">Third parties</div>
-          <div class="val">500<span class="u">+</span></div>
+          <div class="val"><span class="count" data-to="500" data-prefix="">500</span><span class="u">+</span></div>
           <div class="lbl">Vendors assessed under a tiered, risk-based program</div>
         </div>
       </div>
@@ -427,10 +434,76 @@
 </footer>
 
 <script>
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // reveal on scroll
   const obs=new IntersectionObserver((entries)=>{
     entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target)}})
   },{threshold:.15});
   document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+  // count-up metrics
+  function countUp(el){
+    const to=+el.dataset.to, prefix=el.dataset.prefix||"", dur=1400, start=performance.now();
+    if(reduce){el.textContent=prefix.replace(/\d+→/,'')+to;return;}
+    function tick(now){
+      const p=Math.min((now-start)/dur,1);
+      const eased=1-Math.pow(1-p,3);
+      const cur=Math.round(to*eased);
+      // handle the "60→95" style prefix by only animating the final number
+      const arrowMatch=prefix.match(/^(\d+)→$/);
+      if(arrowMatch){ el.textContent=arrowMatch[1]+"→"+cur; }
+      else { el.textContent=prefix+cur; }
+      if(p<1)requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  const countObs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{if(e.isIntersecting){countUp(e.target);countObs.unobserve(e.target)}})
+  },{threshold:.6});
+  document.querySelectorAll('.count').forEach(el=>countObs.observe(el));
+
+  // ambient network backdrop
+  (function(){
+    if(reduce)return;
+    const c=document.getElementById('net'),x=c.getContext('2d');
+    let w,h,nodes,raf;
+    function size(){w=c.width=innerWidth*devicePixelRatio;h=c.height=innerHeight*devicePixelRatio;
+      c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';}
+    function init(){
+      size();
+      const count=Math.min(52,Math.floor(innerWidth/26));
+      nodes=Array.from({length:count},()=>({
+        x:Math.random()*w,y:Math.random()*h,
+        vx:(Math.random()-.5)*.28*devicePixelRatio,
+        vy:(Math.random()-.5)*.28*devicePixelRatio,
+        r:(Math.random()*1.6+.7)*devicePixelRatio
+      }));
+    }
+    function draw(){
+      x.clearRect(0,0,w,h);
+      const maxD=140*devicePixelRatio;
+      for(let i=0;i<nodes.length;i++){
+        const n=nodes[i];
+        n.x+=n.vx;n.y+=n.vy;
+        if(n.x<0||n.x>w)n.vx*=-1;
+        if(n.y<0||n.y>h)n.vy*=-1;
+        for(let j=i+1;j<nodes.length;j++){
+          const m=nodes[j],dx=n.x-m.x,dy=n.y-m.y,d=Math.hypot(dx,dy);
+          if(d<maxD){
+            x.strokeStyle='rgba(63,216,198,'+(1-d/maxD)*.22+')';
+            x.lineWidth=devicePixelRatio*.6;
+            x.beginPath();x.moveTo(n.x,n.y);x.lineTo(m.x,m.y);x.stroke();
+          }
+        }
+        x.fillStyle='rgba(63,216,198,.55)';
+        x.beginPath();x.arc(n.x,n.y,n.r,0,Math.PI*2);x.fill();
+      }
+      raf=requestAnimationFrame(draw);
+    }
+    init();draw();
+    let t;addEventListener('resize',()=>{clearTimeout(t);t=setTimeout(()=>{cancelAnimationFrame(raf);init();draw();},200)});
+  })();
 </script>
 </body>
 </html>
